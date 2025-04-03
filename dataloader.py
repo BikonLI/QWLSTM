@@ -8,12 +8,23 @@ def sliding_window(X: np.ndarray, Y: np.ndarray, step: int = 30):
     if len(X) != len(Y):
         raise IndexError
     x, y = [], []
-    for i in range(len(X) - step + 1):
+    for i in range(len(X) - step):
         # print(X[i:i + step, ])
         x.append(X[i:i + step, ])
-        y.append(Y[i:i + step, ])
+        y.append(Y[i + step, 0])
 
     return np.array(x), np.array(y)
+
+def flatten(X: np.ndarray):
+    """将第二个维度和第三个维度进行压缩，用于随机森林
+
+    Args:
+        X (np.ndarray): 模型输入
+
+    Returns:
+        np.ndarray: 展平后的数组
+    """
+    return X.reshape(X.shape[0], -1)
 
 
 # 使用滑动窗口，获得新的X，Y
