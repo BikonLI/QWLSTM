@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 from collections import Counter
 import warnings
+from dataloader import device
 
 warnings.filterwarnings("ignore")
 
@@ -83,7 +84,7 @@ def get_rfweight(rf, x):
     return G_unnorm / ntrees, G_norm / ntrees
 
 
-def get_derivative_matrix(A, B, device="cpu"):
+def get_derivative_matrix(A, B, device=device):
 
     n = A.shape[0]
     p = A.shape[1]
@@ -109,7 +110,7 @@ class QWLSTMModel:
         quantile: float = 0.05,
         dropout: float = 0.1,
         num_layers: int = 3,
-        device="cpu",
+        device=device,
     ):
         """
 

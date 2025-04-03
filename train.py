@@ -1,4 +1,4 @@
-from dataloader import X_train, Y_train, X_test, Y_test, X_val, Y_val, flatten
+from dataloader import X_train, Y_train, X_test, Y_test, X_val, Y_val, device, flatten
 from QWLSTMModel import QWLSTMModel, get_rfweight
 from quantile_forest import RandomForestQuantileRegressor
 import numpy as np
