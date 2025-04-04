@@ -115,7 +115,7 @@ def calculate_loss(
         f"kupiec检验结果: {'拒绝原假设' if kupiec_result else '未拒绝原假设'}，违约次数: {yp_big_num}"
     )
 
-    return -target_loss(Y_test.cpu().numpy(), Y_pred, quantile=quantile)
+    return -target_loss(Y_val.cpu().numpy(), Y_pred, quantile=quantile)
 
 
 def bayesian_optimization(_iter: int = 500):
