@@ -141,7 +141,7 @@ class QWLSTMModel:
         verbose=True,
     ):
 
-        x, y, = x.to(self.device), y.to(self.device)
+        x, y = x.to(self.device), y.to(self.device)
 
         n = x.shape[0]
         p = x.shape[1]
@@ -232,11 +232,10 @@ class QWLSTMModel:
 
         self.fnet.to(self.device)
 
-        with torch.no_grad():  # 关闭梯度计算，节省显存
+        with torch.no_grad():
             y_pred = self.fnet(x_new)
 
         return y_pred.cpu().numpy().ravel()
-
 
     def predict_derivative(self, x_new):
 
