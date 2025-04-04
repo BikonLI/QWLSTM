@@ -109,7 +109,7 @@ def calculate_loss(
     Y_pred = qwlstm_model.predict(X_val)
 
     # kupiec检验
-    yp_big_num = np.sum(Y_val < Y_pred)
+    yp_big_num = np.sum(Y_val.cpu().numpy() < Y_pred)
     kupiec_result = kupiec_test(yp_big_num, len(Y_pred), quantile=quantile)
     print(
         f"kupiec检验结果: {'拒绝原假设' if kupiec_result else '未拒绝原假设'}，违约次数: {yp_big_num}"
