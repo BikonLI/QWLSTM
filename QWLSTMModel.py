@@ -141,8 +141,8 @@ class QWLSTMModel:
         verbose=True,
     ):
 
-        x = torch.FloatTensor(x)
-        y = torch.FloatTensor(y)
+        # x = torch.FloatTensor(x)
+        # y = torch.FloatTensor(y)
         weight = torch.FloatTensor(weight)
 
         n = x.shape[0]
