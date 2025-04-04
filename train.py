@@ -51,7 +51,13 @@ def kupiec_test(violations, total_days, quantile):
     kupiec_statistic = -2 * np.log(
         ((1 - p_value) ** (total_days - violations)) * (p_value**violations)
     )
-    return kupiec_statistic > confidence_intervals_map[p_value]  # 95%置信区间的临界值为3.84
+
+    result = kupiec_statistic > confidence_intervals_map[p_value]
+
+    print(
+        f"kupiec result: {"Reject the null hypothesis" if result < confidence_intervals_map[quantile] else 'not reject the null hypothesis'}, Default count: {violations}"
+    )
+    return result < confidence_intervals_map[quantile] # 95%置信区间的临界值为3.84
 
 
 def calculate_loss(
@@ -110,10 +116,8 @@ def calculate_loss(
 
     # kupiec检验
     yp_big_num = np.sum(Y_val.cpu().numpy() < Y_pred)
-    kupiec_result = kupiec_test(yp_big_num, len(Y_pred), quantile=quantile)
-    print(
-        f"kupiec检验结果: {'拒绝原假设' if kupiec_result else '未拒绝原假设'}，违约次数: {yp_big_num}"
-    )
+    kupiec_test(yp_big_num, len(Y_pred), quantile=quantile)
+    
 
     return -target_loss(Y_val.cpu().numpy(), Y_pred, quantile=quantile)
 
@@ -236,11 +240,7 @@ def train_model_1():  # 滚动向前预测训练
 
     # 计算Kupiec检验
     yp_big_num = np.sum(Y[input_size:] < Y_pred)
-    kupiec_result = kupiec_test(yp_big_num, len(Y_pred), quantile=quantile)    
-    print(
-        f"kupiec检验结果: {'拒绝原假设' if kupiec_result else '未拒绝原假设'}，违约次数: {yp_big_num}"
-    )
-
+    kupiec_test(yp_big_num, len(Y_pred), quantile=quantile)
 
 if __name__ == "__main__":
     bayesian_optimization()
