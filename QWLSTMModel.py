@@ -141,7 +141,7 @@ class QWLSTMModel:
         verbose=True,
     ):
 
-        x, y, weight = x.to(self.device), y.to(self.device), weight.to(self.device)
+        x, y, = x.to(self.device), y.to(self.device)
 
         n = x.shape[0]
         p = x.shape[1]
@@ -171,12 +171,12 @@ class QWLSTMModel:
             tmp_x = x[csample].to(self.device)
             tmp_y = y[csample].to(self.device)
             tmp_w = (
-                weight[
+                torch.Tensor(weight[
                     np.tile(csample, (batch_size, 1)).T.ravel(),
                     np.tile(csample, (1, batch_size)),
                 ]
                 .reshape(batch_size, -1)
-                .T.to(self.device)
+                .T).to(self.device)
             )
             tmp_w = tmp_w if tau is None else tmp_w - torch.diag(torch.diag(tmp_w))
             tmp_fx = self.fnet(tmp_x)
@@ -230,7 +230,13 @@ class QWLSTMModel:
         x_new = x_new.to(self.device)
         x_new = x_new.reshape(-1, 1) if x_new.ndim == 1 else x_new
 
-        return self.fnet.cpu()(x_new).data.numpy().ravel()
+        self.fnet.to(self.device)
+
+        with torch.no_grad():  # 关闭梯度计算，节省显存
+            y_pred = self.fnet(x_new)
+
+        return y_pred.cpu().numpy().ravel()
+
 
     def predict_derivative(self, x_new):
 
