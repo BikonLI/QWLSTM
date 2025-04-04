@@ -77,8 +77,6 @@ def calculate_loss(
 
     # 预测结果
     Y_pred = qwlstm_model.predict(X_test)
-    # Y_pred = y_pred1.reshape(-1, 1)  # 确保 y_pred1 是列向量
-
     return -target_loss(Y_test.cpu().numpy(), Y_pred, quantile=quantile)
 
 
