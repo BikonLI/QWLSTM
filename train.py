@@ -4,6 +4,7 @@ from quantile_forest import RandomForestQuantileRegressor
 import numpy as np
 from bayes_opt import BayesianOptimization
 import json
+import torch
 
 quantile = 0.05  # 全局分位数
 
@@ -56,12 +57,13 @@ def calculate_loss(
         min_samples_leaf=min_samples_leaf,
         max_depth=max_depth,
     )
-    rf.fit(flatten(X_train).cpu(), flatten(Y_train).cpu())
-    mrfw, mrfwn = get_rfweight(rf, flatten(X_train).cpu())
-
     qwlstm_model = QWLSTMModel(
         hs=hidden_size, quantile=quantile, dropout=dropout, num_layers=num_layers
     )
+
+    rf.fit(flatten(X_train).cpu(), flatten(Y_train).cpu())
+    mrfw, mrfwn = get_rfweight(rf, flatten(X_train).cpu())
+
     qwlstm_model.fit(  # 使用训练集调优超参数（70%）
         X_train,
         Y_train,
@@ -130,38 +132,70 @@ def load_best_params():
     return {**best_params_inted, **best_params_float}
 
 
-# def train_model_1():  # 滚动向前预测训练
-#     try:
-#         best_params = load_best_params()
-#     except FileNotFoundError:
-#         print("best_params.txt not found. Please run bayesian_optimization() first.")
-#         return
+def train_model_1():  # 滚动向前预测训练
+    try:
+        best_params = load_best_params()
+    except FileNotFoundError:
+        print("best_params.txt not found. Please run bayesian_optimization() first.")
+        return
 
-#     rf = RandomForestQuantileRegressor(
-#         n_estimators= best_params n_estimators,
-#         min_samples_split=min_samples_split,
-#         min_samples_leaf=min_samples_leaf,
-#         max_depth=max_depth,
-#     )
-#     rf.fit(flatten(X_train), flatten(Y_train))
-#     mrfw, mrfwn = get_rfweight(rf, flatten(X_train))
+    # 处理训练数据
+    X = torch.cat((X_train, X_val, X_test), dim=0)
+    Y = torch.cat((Y_train, Y_val, Y_test), dim=0)
+    input_size = int(X.shape[0] * .8)
+    total_size = X.shape[0]
 
-#     qwlstm_model = QWLSTMModel(
-#         hs=hidden_size, quantile=quantile, dropout=dropout, num_layers=num_layers
-#     )
-#     qwlstm_model.fit(  # 使用训练集调优超参数（70%）
-#         X_train,
-#         Y_train,
-#         mrfw,
-#         tau=tau,
-#         d=False,
-#         batch_size=batch_size,
-#         n_iter=n_iter,
-#         lr=lr,
-#         tol=tol,
-#         verbose=False,
-#     )
+    # 创建模型
+    rf = RandomForestQuantileRegressor(
+        n_estimators= best_params["n_estimators"],
+        min_samples_split=best_params["min_samples_split"],
+        min_samples_leaf=best_params["min_samples_leaf"],
+        max_depth=best_params["max_depth"],
+    )
+    qwlstm_model = QWLSTMModel(
+        hs=best_params["hidden_size"], 
+        quantile=quantile, 
+        dropout=best_params["dropout"], 
+        num_layers=best_params["num_layers"]
+    )
 
+    # 开始训练
+    Y_pred = np.ndarray((total_size - input_size)) # 20%的预测值
+    for i in range(0, total_size - input_size):
+
+        slice_start = i
+        slice_end = i + input_size
+
+        _X_train = X[slice_start:slice_end]
+        _Y_train = Y[slice_start:slice_end]
+
+        rf.fit(flatten(_X_train).cpu(), flatten(_Y_train).cpu())
+        mrfw, mrfwn = get_rfweight(rf, flatten(_X_train).cpu())  
+
+        qwlstm_model.fit(  # 使用训练集调优超参数（70%）
+            _X_train,
+            _Y_train,
+            mrfw,
+            tau=best_params["tau"],
+            d=False,
+            batch_size=best_params["batch_size"],
+            n_iter=best_params["n_iter"],
+            lr=best_params["lr"],
+            tol=best_params["tol"],
+            verbose=False,
+        )
+
+        with torch.no_grad():
+            y = qwlstm_model.predict(X[-1].unsqueeze(0))  # 预测最后一个值
+
+        Y_pred[i] = y[0]
+        print(f"{i} times prediction finished! loss: {target_loss(Y[slice_end: slice_end + 1].cpu().numpy(), y, quantile=quantile)}")
+
+    # 计算损失
+    print("model training finished!")
+    loss = target_loss(Y[input_size:], Y_pred, quantile=quantile)
+    print("model last loss: ", loss)
 
 if __name__ == "__main__":
-    bayesian_optimization(10)
+    # bayesian_optimization(10)
+    train_model_1()

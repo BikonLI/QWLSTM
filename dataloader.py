@@ -7,8 +7,8 @@ import torch
 print("CUDA Available:", torch.cuda.is_available())
 if torch.cuda.is_available():
     print("GPU Name:", torch.cuda.get_device_name(0))
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Using device:", device)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Using device:", device)
 
 
 def sliding_window(X: np.ndarray, Y: np.ndarray, step: int = 30):
