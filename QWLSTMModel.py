@@ -141,9 +141,7 @@ class QWLSTMModel:
         verbose=True,
     ):
 
-        # x = torch.FloatTensor(x)
-        # y = torch.FloatTensor(y)
-        weight = torch.FloatTensor(weight)
+        x, y, weight = x.to(self.device), y.to(self.device), weight.to(self.device)
 
         n = x.shape[0]
         p = x.shape[1]
@@ -229,14 +227,14 @@ class QWLSTMModel:
 
     def predict(self, x_new):
 
-        x_new = torch.FloatTensor(x_new)
+        x_new = x_new.to(self.device)
         x_new = x_new.reshape(-1, 1) if x_new.ndim == 1 else x_new
 
         return self.fnet.cpu()(x_new).data.numpy().ravel()
 
     def predict_derivative(self, x_new):
 
-        x_new = torch.FloatTensor(x_new)
+        x_new = x_new.to(self.device)
         x_new = x_new.reshape(-1, 1) if x_new.ndim == 1 else x_new
 
         return self.dnet.cpu()(x_new).data.numpy()
