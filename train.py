@@ -26,6 +26,34 @@ def target_loss(Y_true: np.ndarray, Y_predict: np.ndarray, quantile: float = qua
     return abs(proportion - quantile)
 
 
+def kupiec_test(violations, total_days, quantile):
+    """Kupiec检验
+
+    Args:
+        violations (int): 违约次数
+        total_days (int): 总天数
+        significance_level (float): 显著性水平
+
+    Returns:
+        bool: 是否拒绝原假设
+    """
+
+    confidence_intervals_map = {
+        0.05: 3.841,
+        0.1: 2.706,
+        0.025: 5.024,
+    }
+
+    if quantile not in confidence_intervals_map:
+        raise ValueError("Invalid quantile value, must be 0.05, 0.1, or 0.025")
+
+    p_value = quantile
+    kupiec_statistic = -2 * np.log(
+        ((1 - p_value) ** (total_days - violations)) * (p_value**violations)
+    )
+    return kupiec_statistic > confidence_intervals_map[p_value]  # 95%置信区间的临界值为3.84
+
+
 def calculate_loss(
     # Qmodel参数
     dropout,
@@ -142,25 +170,25 @@ def train_model_1():  # 滚动向前预测训练
     # 处理训练数据
     X = torch.cat((X_train, X_val, X_test), dim=0)
     Y = torch.cat((Y_train, Y_val, Y_test), dim=0)
-    input_size = int(X.shape[0] * .8)
+    input_size = int(X.shape[0] * 0.8)
     total_size = X.shape[0]
 
     # 创建模型
     rf = RandomForestQuantileRegressor(
-        n_estimators= best_params["n_estimators"],
+        n_estimators=best_params["n_estimators"],
         min_samples_split=best_params["min_samples_split"],
         min_samples_leaf=best_params["min_samples_leaf"],
         max_depth=best_params["max_depth"],
     )
     qwlstm_model = QWLSTMModel(
-        hs=best_params["hidden_size"], 
-        quantile=quantile, 
-        dropout=best_params["dropout"], 
-        num_layers=best_params["num_layers"]
+        hs=best_params["hidden_size"],
+        quantile=quantile,
+        dropout=best_params["dropout"],
+        num_layers=best_params["num_layers"],
     )
 
     # 开始训练
-    Y_pred = np.ndarray((total_size - input_size)) # 20%的预测值
+    Y_pred = np.ndarray((total_size - input_size))  # 20%的预测值
     for i in range(0, total_size - input_size):
 
         slice_start = i
@@ -170,7 +198,7 @@ def train_model_1():  # 滚动向前预测训练
         _Y_train = Y[slice_start:slice_end]
 
         rf.fit(flatten(_X_train).cpu(), flatten(_Y_train).cpu())
-        mrfw, mrfwn = get_rfweight(rf, flatten(_X_train).cpu())  
+        mrfw, mrfwn = get_rfweight(rf, flatten(_X_train).cpu())
 
         qwlstm_model.fit(  # 使用训练集调优超参数（70%）
             _X_train,
@@ -189,13 +217,23 @@ def train_model_1():  # 滚动向前预测训练
             y = qwlstm_model.predict(X[-1].unsqueeze(0))  # 预测最后一个值
 
         Y_pred[i] = y[0]
-        print(f"{i} times prediction finished! loss: {target_loss(Y[slice_end: slice_end + 1].cpu().numpy(), y, quantile=quantile)}")
+        print(
+            f"{i} times prediction finished! loss: {target_loss(Y[slice_end: slice_end + 1].cpu().numpy(), y, quantile=quantile)}"
+        )
 
     # 计算损失
     print("model training finished!")
     loss = target_loss(Y[input_size:], Y_pred, quantile=quantile)
     print("model last loss: ", loss)
 
+    # 计算Kupiec检验
+    yp_big_num = np.sum(Y[input_size:] < Y_pred)
+    kupiec_result = kupiec_test(yp_big_num, len(Y_pred), quantile=quantile)    
+    print(
+        f"kupiec检验结果: {'拒绝原假设' if kupiec_result else '未拒绝原假设'}，违约次数: {yp_big_num}"
+    )
+
+
 if __name__ == "__main__":
-    # bayesian_optimization(10)
+    bayesian_optimization()
     train_model_1()
