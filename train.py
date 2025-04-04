@@ -56,8 +56,8 @@ def calculate_loss(
         min_samples_leaf=min_samples_leaf,
         max_depth=max_depth,
     )
-    rf.fit(flatten(X_train), flatten(Y_train))
-    mrfw, mrfwn = get_rfweight(rf, flatten(X_train))
+    rf.fit(flatten(X_train).cpu(), flatten(Y_train).cpu())
+    mrfw, mrfwn = get_rfweight(rf, flatten(X_train).cpu())
 
     qwlstm_model = QWLSTMModel(
         hs=hidden_size, quantile=quantile, dropout=dropout, num_layers=num_layers
