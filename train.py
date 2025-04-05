@@ -8,6 +8,16 @@ import torch
 
 quantile = 0.05  # 全局分位数
 
+
+def violation(Y_true, Y_predict):
+    if isinstance(Y_true, torch.Tensor):
+       Y_true = Y_true.cpu().numpy()
+    
+    if isinstance(Y_predict, torch.Tensor):
+        Y_predict = Y_predict.cpu().numpy()
+    
+    return int(np.sum(Y_true < Y_predict))
+
 # the param should be whether instance of ndarray or tensor
 def target_loss(Y_true: np.ndarray, Y_predict: np.ndarray, quantile: float = quantile):
     """计算目标损失，用于贝叶斯优化
@@ -20,13 +30,7 @@ def target_loss(Y_true: np.ndarray, Y_predict: np.ndarray, quantile: float = qua
     Returns:
         float: 损失值
     """
-    if isinstance(Y_true, torch.Tensor):
-       Y_true = Y_true.cpu().numpy()
-    
-    if isinstance(Y_predict, torch.Tensor):
-        Y_predict = Y_predict.cpu().numpy()
-
-    yp_big_num = np.sum(Y_true < Y_predict)
+    yp_big_num = violation(Y_true, Y_predict)
     proportion = yp_big_num / len(Y_true)
 
     return abs(proportion - quantile)
@@ -127,7 +131,7 @@ def calculate_loss(
     Y_pred = qwlstm_model.predict(X_val)
 
     # kupiec检验
-    yp_big_num = np.sum(Y_val.cpu().numpy() < Y_pred)
+    yp_big_num = violation(Y_val, Y_pred)
     kupiec_test(yp_big_num, len(Y_pred), quantile=quantile)
     
 
@@ -251,7 +255,7 @@ def train_model_1():  # 滚动向前预测训练
     print("model last loss: ", loss)
 
     # 计算Kupiec检验
-    yp_big_num = np.sum(Y[input_size:] < Y_pred)
+    yp_big_num = violation(Y[input_size:], Y_pred)
     kupiec_test(yp_big_num, len(Y_pred), quantile=quantile)
 
 if __name__ == "__main__":
