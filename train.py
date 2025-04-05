@@ -8,7 +8,7 @@ import torch
 
 quantile = 0.05  # 全局分位数
 
-
+# the param should be whether instance of ndarray or tensor
 def target_loss(Y_true: np.ndarray, Y_predict: np.ndarray, quantile: float = quantile):
     """计算目标损失，用于贝叶斯优化
 
@@ -20,13 +20,19 @@ def target_loss(Y_true: np.ndarray, Y_predict: np.ndarray, quantile: float = qua
     Returns:
         float: 损失值
     """
+    if isinstance(Y_true, torch.Tensor):
+       Y_true = Y_true.cpu().numpy()
+    
+    if isinstance(Y_predict, torch.Tensor):
+        Y_predict = Y_predict.cpu().numpy()
+
     yp_big_num = np.sum(Y_true < Y_predict)
     proportion = yp_big_num / len(Y_true)
 
     return abs(proportion - quantile)
 
 
-def kupiec_test(violations, total_days, quantile):
+def kupiec_test(violations, total_days, quantile, verbose: bool = True):
     """Kupiec检验
 
     Args:
@@ -54,9 +60,15 @@ def kupiec_test(violations, total_days, quantile):
 
     result = kupiec_statistic > confidence_intervals_map[p_value]
 
-    print(
-        f"kupiec result: {"Reject the null hypothesis" if result < confidence_intervals_map[quantile] else 'not reject the null hypothesis'}, Default count: {violations}"
-    )
+    if result < confidence_intervals_map[quantile]:
+        text = f"kupiec result: Reject the null hypothesis. Default count: {violations}"
+    
+    else:
+        text = f"not reject the null hypothesis, Default count: {violations}"
+    
+    if verbose:
+        print(text)
+
     return result < confidence_intervals_map[quantile] # 95%置信区间的临界值为3.84
 
 
