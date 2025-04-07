@@ -11,12 +11,13 @@ quantile = 0.05  # 全局分位数
 
 def violation(Y_true, Y_predict):
     if isinstance(Y_true, torch.Tensor):
-       Y_true = Y_true.cpu().numpy()
-    
+        Y_true = Y_true.cpu().numpy()
+
     if isinstance(Y_predict, torch.Tensor):
         Y_predict = Y_predict.cpu().numpy()
-    
+
     return int(np.sum(Y_true < Y_predict))
+
 
 # the param should be whether instance of ndarray or tensor
 def target_loss(Y_true: np.ndarray, Y_predict: np.ndarray, quantile: float = quantile):
@@ -66,14 +67,14 @@ def kupiec_test(violations, total_days, quantile, verbose: bool = True):
 
     if result < confidence_intervals_map[quantile]:
         text = f"kupiec result: Reject the null hypothesis. Default count: {violations}"
-    
+
     else:
         text = f"not reject the null hypothesis, Default count: {violations}"
-    
+
     if verbose:
         print(text)
 
-    return result < confidence_intervals_map[quantile] # 95%置信区间的临界值为3.84
+    return result < confidence_intervals_map[quantile]  # 95%置信区间的临界值为3.84
 
 
 def calculate_loss(
@@ -133,26 +134,30 @@ def calculate_loss(
     # kupiec检验
     yp_big_num = violation(Y_val, Y_pred)
     kupiec_test(yp_big_num, len(Y_pred), quantile=quantile)
-    
 
     return -target_loss(Y_val.cpu().numpy(), Y_pred, quantile=quantile)
 
 
-def bayesian_optimization(_iter: int = 500):
-    pbounds = {
-        "dropout": (0.0, 0.5),
-        "hidden_size": (4, 128),
-        "n_iter": (500, 2000),
-        "lr": (1e-4, 1e-1),
-        "batch_size": (4, 256),
-        "tol": (1e-6, 1e-4),
-        "tau": (0.0, 1.0),
-        "num_layers": (1, 4),
-        "n_estimators": (50, 200),
-        "min_samples_leaf": (1, 15),
-        "min_samples_split": (2, 20),
-        "max_depth": (5, 30),
-    }
+def bayesian_optimization(_iter: int = 500, param_range=None):
+
+    if param_range is None:
+        pbounds = {
+            "dropout": (0.0, 0.5),
+            "hidden_size": (4, 128),
+            "n_iter": (500, 2000),
+            "lr": (1e-4, 1e-1),
+            "batch_size": (4, 256),
+            "tol": (1e-6, 1e-4),
+            "tau": (0.0, 1.0),
+            "num_layers": (1, 4),
+            "n_estimators": (50, 200),
+            "min_samples_leaf": (1, 15),
+            "min_samples_split": (2, 20),
+            "max_depth": (5, 30),
+        }
+
+    else:
+        pbounds = param_range
 
     optimizer = BayesianOptimization(f=calculate_loss, pbounds=pbounds, random_state=1)
 
@@ -258,6 +263,28 @@ def train_model_1():  # 滚动向前预测训练
     yp_big_num = violation(Y[input_size:], Y_pred)
     kupiec_test(yp_big_num, len(Y_pred), quantile=quantile)
 
+
 if __name__ == "__main__":
-    bayesian_optimization()
+
+    # QWLSTM贝叶斯优化，并训练模型
+    # bayesian_optimization()
+    # train_model_1()
+
+    # LSTM
+    bayesian_optimization(  # 这里可以调整贝叶斯优化的参数范围
+        param_range={
+            "dropout": (0.0, 0.5),
+            "hidden_size": (4, 128),
+            "n_iter": (500, 2000),
+            "lr": (1e-4, 1e-1),
+            "batch_size": (4, 256),
+            "tol": (1e-6, 1e-4),
+            "tau": (1.0, 1.0),
+            "num_layers": (1, 4),
+            "n_estimators": (50, 200),
+            "min_samples_leaf": (1, 15),
+            "min_samples_split": (2, 20),
+            "max_depth": (5, 30),
+        }
+    )
     train_model_1()

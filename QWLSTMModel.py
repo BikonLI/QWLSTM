@@ -137,14 +137,13 @@ class QWLSTMModel:
         batch_size=100,
         n_iter=500,
         lr=1e-3,
-        tol=1e-5,
+        tol=None,
         verbose=True,
     ):
 
         x, y = x.to(self.device), y.to(self.device)
 
         n = x.shape[0]
-        p = x.shape[1]
         input_size = x.shape[2]
 
         self.fnet = LSTMModel(
@@ -170,20 +169,22 @@ class QWLSTMModel:
             csample = np.random.permutation(n)[:batch_size]
             tmp_x = x[csample].to(self.device)
             tmp_y = y[csample].to(self.device)
-            tmp_w = (
-                torch.Tensor(weight[
+            tmp_w = torch.Tensor(
+                weight[
                     np.tile(csample, (batch_size, 1)).T.ravel(),
                     np.tile(csample, (1, batch_size)),
                 ]
                 .reshape(batch_size, -1)
-                .T).to(self.device)
+                .T
+            ).to(self.device)
+            tmp_w = (
+                tmp_w
+                if (tau is None or tau == 1)
+                else tmp_w - torch.diag(torch.diag(tmp_w))
             )
-            tmp_w = tmp_w if tau is None else tmp_w - torch.diag(torch.diag(tmp_w))
             tmp_fx = self.fnet(tmp_x)
-            # tmp_my = torch.tile(tmp_y, (batch_size, 1 ))
-            # tmp_mfx = torch.tile(tmp_fx, (1, batch_size))
 
-            if tau is None:
+            if tau is None or tau == 1:
                 loss = self.quantile_loss(tmp_y, tmp_fx.ravel(), self.q).mean()
             else:
                 loss1 = self.quantile_loss(tmp_y, tmp_fx.ravel(), self.q).mean()
@@ -248,3 +249,48 @@ class QWLSTMModel:
         errors = y_true - y_pred.detach()
         max_errors = torch.max(q * errors, (q - 1) * errors)
         return max_errors
+
+    def save(self, filepath):
+        """保存模型参数和配置"""
+        torch.save(
+            {
+                "state_dict": self.fnet.state_dict(),
+                "params": {
+                    "hs": self.hs,
+                    "quantile": 1 - self.q,
+                    "dropout": self.dropout,
+                    "num_layers": self.num_layers,
+                    "device": str(self.device),
+                },
+            },
+            filepath,
+        )
+
+    @staticmethod
+    def load(filepath, input_size=None):
+        """从文件中加载模型"""
+
+        if input_size is None:
+            raise ValueError("input_size must be specified for loading the model.")
+        checkpoint = torch.load(filepath)
+        params = checkpoint["params"]
+
+        # 创建模型
+        model = QWLSTMModel(
+            hs=params["hs"],
+            quantile=params["quantile"],
+            dropout=params["dropout"],
+            num_layers=params["num_layers"],
+            device=params["device"],
+        )
+        model.fnet = LSTMModel(
+            input_size=input_size,
+            hidden_size=model.hs,
+            num_layers=model.num_layers,
+            output_size=1,
+            dropout=model.dropout,
+        ).to(model.device)
+
+        model.fnet.load_state_dict(checkpoint["state_dict"])
+
+        return model
